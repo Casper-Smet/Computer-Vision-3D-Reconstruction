@@ -7,6 +7,11 @@ import glm
 block_size = 1.0
 
 
+def reorder_cv_gl(array):
+    x, y, z = array.T
+    return np.stack([x, z, y]).T
+
+
 def read_camera_properties(filename):
     fs = cv2.FileStorage(filename, cv2.FILE_STORAGE_READ)
 
@@ -36,14 +41,12 @@ def generate_grid(width, depth):
 
 def set_voxel_positions(width, height, depth):
     voxel_data = np.load(r"..\data\vox_data.npz")
-    true_vox, _stepsize, z_stepsize = (
+    true_vox, colors = (
         voxel_data["vox_coords"],
-        voxel_data["_stepsize"],
-        voxel_data["z_stepsize"],
+        voxel_data["colors"],
     )
 
-    colors = np.full(true_vox.shape, (255, 0, 0))
-    return true_vox, colors
+    return reorder_cv_gl(true_vox), colors / 255
 
 
 def get_cam_pos(path):
@@ -60,11 +63,12 @@ def get_cam_pos(path):
     rvec = cam_props["r_matrix"]
     rmatrix = cv2.Rodrigues(rvec)[0]
 
-    pos = (-(rmatrix.T).dot(tvec) + 2000)
-    pos[0] = pos[0] / _stepsize  # TODO Z scales differently fix please
-    pos[1] = pos[1] / _stepsize  # TODO Z scales differently fix please
-    pos[2] = pos[2] / z_stepsize  # TODO Z scales differently fix please
-    return pos.reshape(3), rvec.reshape(3)
+    pos = -(rmatrix.T).dot(tvec)
+    pos[0] = (pos[0] + 2000) / _stepsize
+    pos[1] = (pos[1] + 2000) / _stepsize
+    pos[2] = pos[2] / z_stepsize
+    # pos[2], pos[0] = pos[0], pos[2]
+    return reorder_cv_gl(pos.reshape(3)), reorder_cv_gl(rvec.reshape(3))
 
 
 def get_cam_positions():
@@ -85,7 +89,6 @@ def get_cam_positions():
 def get_cam_rotation_matrices():
     # Generates dummy camera rotation matrices, looking down 45 degrees towards the center of the room
     # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
-    cam_angles = [[0, 45, -45], [0, 135, -45], [0, 225, -45], [0, 315, -45]]
     _, cam_angles = zip(
         *[get_cam_pos(f"../data/cam{i}/camera_properties.xml") for i in range(1, 5)]
     )

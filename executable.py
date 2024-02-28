@@ -122,6 +122,10 @@ def main():
     grid_positions, grid_colors = generate_grid(config['world_width'], config['world_width'])
     square.set_multiple_positions(grid_positions, grid_colors)
 
+    positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
+    cube.set_multiple_positions(positions, colors)
+
+
     cam_positions, cam_colors = get_cam_positions()
     for c, cam_pos in enumerate(cam_positions):
         cam_shapes[c].set_multiple_positions([cam_pos], [cam_colors[c]])
@@ -155,6 +159,8 @@ def main():
         draw_objs(cube, program, perspective, light_pos, texture, normal, specular, depth)
         for cam in cam_shapes:
             draw_objs(cam, program, perspective, light_pos, texture_grid, normal_grid, specular_grid, depth_grid)
+
+
 
         hdrbuffer.unbind()
         hdrbuffer.finalize()
