@@ -46,6 +46,7 @@ def set_voxel_positions(width, height, depth):
         voxel_data["colors"],
     )
 
+    colors[:, 0], colors[:, 2] = colors[:, 2], colors[:, 0]
     return reorder_cv_gl(true_vox), colors / 255
 
 
@@ -53,7 +54,7 @@ def get_cam_pos(path):
     # https://stackoverflow.com/a/14693971
 
     voxel_data = np.load(r"..\data\vox_data.npz")
-    _stepsize, z_stepsize = (
+    xy_step, z_step = (
         voxel_data["_stepsize"],
         voxel_data["z_stepsize"],
     )
@@ -63,12 +64,10 @@ def get_cam_pos(path):
     rvec = cam_props["r_matrix"]
     rmatrix = cv2.Rodrigues(rvec)[0]
 
-    pos = -(rmatrix.T).dot(tvec)
-    pos[0] = (pos[0] + 2000) / _stepsize
-    pos[1] = (pos[1] + 2000) / _stepsize
-    pos[2] = pos[2] / z_stepsize
-    # pos[2], pos[0] = pos[0], pos[2]
-    return reorder_cv_gl(pos.reshape(3)), reorder_cv_gl(rvec.reshape(3))
+    pos = -(rmatrix.T).dot(tvec).reshape(3)
+    cam_vox = pos / np.array([xy_step, xy_step, z_step])
+
+    return reorder_cv_gl(cam_vox), reorder_cv_gl(rvec.reshape(3))
 
 
 def get_cam_positions():
@@ -79,11 +78,6 @@ def get_cam_positions():
         *[get_cam_pos(f"../data/cam{i}/camera_properties.xml") for i in range(1, 5)]
     )
     return pos, [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
-    # return [[-64 * block_size, 64 * block_size, 63 * block_size],
-    #         [63 * block_size, 64 * block_size, 63 * block_size],
-    #         [63 * block_size, 64 * block_size, -64 * block_size],
-    #         [-64 * block_size, 64 * block_size, -64 * block_size]], \
-    #     [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
 
 def get_cam_rotation_matrices():
@@ -92,16 +86,10 @@ def get_cam_rotation_matrices():
     _, cam_angles = zip(
         *[get_cam_pos(f"../data/cam{i}/camera_properties.xml") for i in range(1, 5)]
     )
-    print(cam_angles)
     cam_rotations = [glm.mat4(1), glm.mat4(1), glm.mat4(1), glm.mat4(1)]
+    cam_rotations = [np.ones((4, 4)), np.ones((4, 4)), np.ones((4, 4)), np.ones((4, 4))]
     for c in range(len(cam_rotations)):
-        cam_rotations[c] = glm.rotate(
-            cam_rotations[c], cam_angles[c][0] * np.pi / 180, [1, 0, 0]
-        )
-        cam_rotations[c] = glm.rotate(
-            cam_rotations[c], cam_angles[c][1] * np.pi / 180, [0, 1, 0]
-        )
-        cam_rotations[c] = glm.rotate(
-            cam_rotations[c], cam_angles[c][2] * np.pi / 180, [0, 0, 1]
-        )
+        cam_rotations[c][:3, :3] = cv2.Rodrigues(cam_angles[c])[0]
+        cam_rotations[c] = glm.mat4(cam_rotations[c])
+
     return cam_rotations
