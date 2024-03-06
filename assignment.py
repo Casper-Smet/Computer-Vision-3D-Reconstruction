@@ -40,7 +40,7 @@ def generate_grid(width, depth):
 
 
 def set_voxel_positions(width, height, depth):
-    voxel_data = np.load(r"..\data\vox_data.npz")
+    voxel_data = np.load(r"..\data\4persons\vox_data.npz")
     true_vox, colors = (
         voxel_data["vox_coords"],
         voxel_data["colors"],
@@ -76,6 +76,7 @@ def get_cam_positions():
 
     pos, rvec = zip(
         *[get_cam_pos(f"../data/cam{i}/camera_properties.xml") for i in range(1, 5)]
+        # *[get_cam_pos(f"../data/4persons/{i}_camera_properties.xml") for i in range(1, 5)]
     )
     return pos, [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0], [1.0, 1.0, 0]]
 
@@ -85,6 +86,7 @@ def get_cam_rotation_matrices():
     # TODO: You need to input the estimated camera rotation matrices (4x4) of the 4 cameras in the world coordinates.
     _, cam_angles = zip(
         *[get_cam_pos(f"../data/cam{i}/camera_properties.xml") for i in range(1, 5)]
+        # *[get_cam_pos(f"../data/4persons/{i}_camera_properties.xml") for i in range(1, 5)]
     )
     cam_rotations = [glm.mat4(1), glm.mat4(1), glm.mat4(1), glm.mat4(1)]
     cam_rotations = [np.ones((4, 4)), np.ones((4, 4)), np.ones((4, 4)), np.ones((4, 4))]
