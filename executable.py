@@ -6,7 +6,7 @@ from engine.buffer.texture import *
 from engine.buffer.hdrbuffer import HDRBuffer
 from engine.buffer.blurbuffer import BlurBuffer
 from engine.effect.bloom import Bloom
-from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices
+from assignment import set_voxel_positions, generate_grid, get_cam_positions, get_cam_rotation_matrices, set_centroid_pos
 from engine.camera import Camera
 from engine.config import config
 
@@ -122,8 +122,8 @@ def main():
     grid_positions, grid_colors = generate_grid(config['world_width'], config['world_width'])
     square.set_multiple_positions(grid_positions, grid_colors)
 
-    positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
-    cube.set_multiple_positions(positions, colors)
+    # positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
+    # cube.set_multiple_positions(positions, colors)
 
 
     cam_positions, cam_colors = get_cam_positions()
@@ -140,6 +140,9 @@ def main():
         last_time = current_time
 
         move_input(window, delta_time)
+        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], int(current_time * 30))
+        cube.set_multiple_positions(positions, colors)
+
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glClearColor(0.1, 0.2, 0.8, 1)
