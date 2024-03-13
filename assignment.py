@@ -9,12 +9,13 @@ block_size = 1.0
 # VOXEL_DATA = np.load(r"..\data\4persons\vox_data_video.npz")
 # VOXEL_DATA = np.load(r"..\data\4persons\vox_data_video_multi.npz")
 VOXEL_DATA = np.load(r"..\data\4persons\vox_data_video_multi_big.npz")
+HIST_DATA = np.load(r"..\data\4persons\cluster_hist.npz")
+GMM_DATA = np.load(r"..\data\4persons\cluster_gmm.npz")
 
 CENTER = None
 RGB = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0]], dtype=np.float32)
 
 from sklearn.cluster import KMeans
-
 
 
 def reorder_cv_gl(array):
@@ -43,43 +44,28 @@ def generate_grid(width, depth):
     for x in range(width):
         for z in range(depth):
             data.append(
-                [x * block_size - width / 2, -block_size, z * block_size - depth / 2]
+                # [x * block_size - width / 2, -block_size, z * block_size - depth / 2]
+                [x * block_size, -block_size, z * block_size]
             )
             colors.append([1.0, 1.0, 1.0] if (x + z) % 2 == 0 else [0, 0, 0])
-    for xyz in range(85):
-        data.append([xyz, 0, 0])
-        data.append([0, 0, xyz])
-        colors.extend(
-            [
-                [1.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-            ]
-        )
-    for xyz in range(25):
-        data.append([0, xyz, 0])
-        colors.append(
-            [1.0, 0.0, 0.0],
-        )
 
     return data, colors
+
 
 def set_centroid_pos():
     return CENTER, RGB
 
 
-def set_voxel_positions(width, height, depth, i=0):
+def set_voxel_positions(width, height, depth, i=0, color_mode=0):
     # voxel_data = np.load(r"..\data\4persons\vox_data.npz")
     # voxel_data = np.load(r"..\data\vox_data.npz")
     voxel_data = VOXEL_DATA  # np.load(r"..\data\4persons\vox_data_video.npz")
-    # i = 0
+
     true_vox, colors = (
         voxel_data[f"{i}_vox_coords"],
         np.median(voxel_data[f"{i}_vox_colors"], axis=0),
     )
-    # true_vox, colors = (
-    #     voxel_data["vox_coords"],
-    #     voxel_data["colors"],
-    # )
+
     global CENTER
 
     colors[:, 0], colors[:, 2] = colors[:, 2], colors[:, 0]
@@ -89,22 +75,16 @@ def set_voxel_positions(width, height, depth, i=0):
     )
     labels = kmeans.fit_predict(XY)
     CENTER = kmeans.cluster_centers_
-
-    colors = (RGB[labels]) * 255
+    if color_mode == 1:
+        colors = (RGB[labels]) * 255
+    elif color_mode == 2:
+        colors = RGB[HIST_DATA[f"{i}_label"]] * 255
+    elif color_mode == 3:
+        colors = RGB[GMM_DATA[f"{i}_label"]] * 255
 
     vox = reorder_cv_gl(true_vox)
-    non_occluded = np.ones(vox.shape[0], dtype=bool)
-    # cam_pos, _ = get_cam_positions()
-    # cam_pos = np.array(cam_pos)
-    # print(vox.max(), vox.min(), cam_pos.max(), cam_pos.min())
-    # dist = distance.cdist(cam_pos, vox.astype(cam_pos.dtype), "euclidean")
-    # print(vox.shape)
-    # for c in range(0, 4):
-    #     srt = dist[c].argsort()
-    #     non_occluded = raytrace_bresenham_3d(cam_pos[0].astype(int), vox[srt])
-    #     break
 
-    return vox[non_occluded], colors[non_occluded] / 255
+    return vox, colors / 255
 
 
 def get_cam_pos(path):
@@ -167,81 +147,6 @@ def get_cam_rotation_matrices():
         cam_rotations.append(transform_to * transform * transform_from)
 
     return cam_rotations
-
-
-def np_in(a, tgt) -> bool:
-    """'Purest' numpy implementation for checking if subarray a is in array of arrays tgt.
-    src: https://stackoverflow.com/questions/14766194/testing-whether-a-numpy-array-contains-a-given-row/14766816#14766816
-    """
-    return np.equal(a, tgt).all(1).any()
-
-
-def raytrace_bresenham_3d(cam_pos, vox_pos):
-    """Draws lines between voxel and camera. If that line intersects with a previous line, the voxel is occluded.
-
-    Args:
-        cam_pos (_type_): Position in 3D
-        vox_pos (_type_): List of position in 3D, assumed to be sorted by distance to camera position
-
-    Returns:
-        _type_: Array of voxels that are not occluded
-    """
-    vox_occluded = np.zeros(vox_pos.shape[0])
-    points = []
-    from matplotlib import pyplot as plt
-    from time import time
-    from tqdm import trange
-
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    for i in trange(vox_pos.shape[0]):
-        beam_pos = cam_pos.copy()
-        # Initialize the list of points
-        vox_point = vox_pos[i]
-        # if not points:
-        #     points = [vox_point.copy()]
-        # elif np_in(vox_point, np.array(points)):
-        #     continue
-        # Calculate differences along each axis
-        diff = vox_point - cam_pos
-        abs_diff = np.abs(diff)
-        # Determine the sign of increments along each axis
-        signs_of_increments = np.ones((3), dtype=int)
-        signs_of_increments[diff < 0] = -1
-
-        # Choose the driving axis (axis with the greatest difference)
-        driving_ax = np.argmax(abs_diff)
-        axes = np.arange(3)
-        ax1, ax2 = axes[axes != driving_ax]
-
-        # ax.scatter(*cam_pos, c="red")
-
-        err1, err2 = 2 * abs_diff[[ax1, ax2]] - abs_diff[driving_ax]
-        while beam_pos[driving_ax] != vox_point[driving_ax]:
-            # If the beam/ray intersects with a voxel, the voxel is occluded.
-            if np_in(beam_pos, vox_pos):
-                vox_occluded[i] = 1
-                break
-            if err1 >= 0:
-                beam_pos[ax1] += signs_of_increments[ax1]
-                err1 -= 2 * abs_diff[driving_ax]
-
-            if err2 >= 0:
-                beam_pos[ax2] += signs_of_increments[ax2]
-                err2 -= 2 * abs_diff[driving_ax]
-
-            err1 += 2 * abs_diff[ax1]
-            err2 += 2 * abs_diff[ax2]
-            beam_pos[driving_ax] += signs_of_increments[driving_ax]
-
-            # ax.scatter(*beam_pos, c="green")
-
-        # ax.scatter(vox_pos[i][ax1], vox_pos[i][ax2], c="blue")
-        # ax.scatter(*vox_pos[i], c="blue")
-        # plt.show()
-        # break
-
-    return vox_occluded == 0
 
 
 def main():

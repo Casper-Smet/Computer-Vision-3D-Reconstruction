@@ -14,6 +14,7 @@ cube, hdrbuffer, blurbuffer, lastPosX, lastPosY = None, None, None, None, None
 firstTime = True
 window_width, window_height = config['window_width'], config['window_height']
 camera = Camera(glm.vec3(0, 100, 0), pitch=-90, yaw=0, speed=40)
+COLOR_MODE = 0 # 0 is median colour, 1 is cluster colour, 2 is histogram, 3 is gmm
 
 
 def draw_objs(obj, program, perspective, light_pos, texture, normal, specular, depth):
@@ -126,9 +127,9 @@ def main():
     # cube.set_multiple_positions(positions, colors)
 
 
-    cam_positions, cam_colors = get_cam_positions()
-    for c, cam_pos in enumerate(cam_positions):
-        cam_shapes[c].set_multiple_positions([cam_pos], [cam_colors[c]])
+    # cam_positions, cam_colors = get_cam_positions()
+    # for c, cam_pos in enumerate(cam_positions):
+    #     cam_shapes[c].set_multiple_positions([cam_pos], [cam_colors[c]])
 
     last_time = glfw.get_time()
     while not glfw.window_should_close(window):
@@ -140,7 +141,7 @@ def main():
         last_time = current_time
 
         move_input(window, delta_time)
-        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], int(current_time * 30))
+        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'], int(current_time * 30), COLOR_MODE)
         cube.set_multiple_positions(positions, colors)
 
 
@@ -192,9 +193,8 @@ def key_callback(window, key, scancode, action, mods):
     if key == glfw.KEY_ESCAPE and action == glfw.PRESS:
         glfw.set_window_should_close(window, glfw.TRUE)
     if key == glfw.KEY_G and action == glfw.PRESS:
-        global cube
-        positions, colors = set_voxel_positions(config['world_width'], config['world_height'], config['world_width'])
-        cube.set_multiple_positions(positions, colors)
+        global cube, COLOR_MODE
+        COLOR_MODE = (COLOR_MODE + 1) % 4 
 
 
 def mouse_move(win, pos_x, pos_y):
